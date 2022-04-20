@@ -18,7 +18,7 @@ class TracksViewController: UIViewController {
     @IBOutlet weak var volumeSlider: UISlider!
     
     var tracks: [Track] = []
-    var currentTrack: Track?
+    var currentTrackPosition = -1
     var player: AVAudioPlayer?
     
     override func viewDidLoad() {
@@ -36,7 +36,7 @@ class TracksViewController: UIViewController {
     
     @IBAction func playButtonPressed(_ sender: Any) {
         
-        guard let currentTrack = currentTrack else {
+        if currentTrackPosition == -1 {
             showAlert()
             return
         }
@@ -44,39 +44,46 @@ class TracksViewController: UIViewController {
         if player?.isPlaying == true {
             player?.stop()
             playButton.setBackgroundImage(UIImage(systemName: "play.fill"), for: .normal)
-            return }
+            return
+        }
         
-        playTrack(track: currentTrack)
+        playTrack(track: tracks[currentTrackPosition])
         playButton.setBackgroundImage(UIImage(systemName: "stop.fill"), for: .normal)
         
     }
     
-    func playTrack(track: Track) {
+    func playTrack(track: Track, delay: Double = 0.0) {
         
-        let urlString = Bundle.main.path(forResource: track.fileName, ofType: "mp3")
+        guard let trackFileURL = Bundle.main.path(forResource: track.fileName, ofType: "mp3") else {
+            print("File not found")
+            return
+        }
         
         do {
             try AVAudioSession.sharedInstance().setMode(.default)
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
-            
-            guard let urlString = urlString else { return }
 
-            player = try AVAudioPlayer(contentsOf: URL(string: urlString)!)
+            player = try AVAudioPlayer(contentsOf: URL(string: trackFileURL)!)
             
             guard let player = player else { return }
             
+            player.delegate = self
             player.volume = volumeSlider.value
-            player.play()
             
-        } catch {
-            print("Error occured")
+            if delay > 0 {
+                player.play(atTime: delay)
+            } else {
+                player.play()
+            }
+            
+        } catch let error {
+            print(error.localizedDescription)
         }
-        
         
     }
     
     private func showAlert() {
-        let alert = UIAlertController(title: "", message: "Please select track", preferredStyle: .alert)
+        let alert = UIAlertController(title: "", message: "You need to select track before start playing", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "OK", style: .default)
         
@@ -109,8 +116,31 @@ extension TracksViewController: UICollectionViewDataSource, UICollectionViewDele
             player.stop()
             playButton.setBackgroundImage(UIImage(systemName: "play.fill"), for: .normal)
         }
-        currentTrack = tracks[indexPath.item]
-        currentTrackLabel.text = currentTrack?.title
+        
+        currentTrackPosition = indexPath.item
+        currentTrackLabel.text = tracks[indexPath.item].title
+    }
+    
+}
+
+// MARK: - AVAudioPlayerDelegate
+
+extension TracksViewController: AVAudioPlayerDelegate {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        
+        if currentTrackPosition != tracks.count - 1 {
+            currentTrackPosition += 1
+        } else {
+            currentTrackPosition = 0
+        }
+        
+        let nextTrack = tracks[currentTrackPosition]
+        
+        tracksCollectionView.selectItem(at: IndexPath(item: currentTrackPosition, section: 0), animated: true, scrollPosition: .centeredHorizontally)
+        currentTrackLabel.text = tracks[currentTrackPosition].title
+        
+        playTrack(track: nextTrack, delay: player.deviceCurrentTime + Double(crossfadeSlider.value))
+        
     }
     
 }
