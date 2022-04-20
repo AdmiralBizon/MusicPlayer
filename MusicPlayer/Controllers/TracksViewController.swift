@@ -95,6 +95,11 @@ class TracksViewController: UIViewController {
         String(format: "%.0f", slider.value)
     }
     
+    private func selectTrack() {
+        tracksCollectionView.selectItem(at: IndexPath(item: currentTrackPosition, section: 0), animated: true, scrollPosition: .centeredHorizontally)
+        currentTrackLabel.text = tracks[currentTrackPosition].title
+    }
+    
 }
 
 // MARK: - UICollectionViewDataSource, UICollectionViewDelegate
@@ -112,13 +117,15 @@ extension TracksViewController: UICollectionViewDataSource, UICollectionViewDele
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        
         if let player = player, player.isPlaying {
             player.stop()
             playButton.setBackgroundImage(UIImage(systemName: "play.fill"), for: .normal)
         }
         
         currentTrackPosition = indexPath.item
-        currentTrackLabel.text = tracks[indexPath.item].title
+        selectTrack()
+    
     }
     
 }
@@ -134,11 +141,9 @@ extension TracksViewController: AVAudioPlayerDelegate {
             currentTrackPosition = 0
         }
         
+        selectTrack()
+        
         let nextTrack = tracks[currentTrackPosition]
-        
-        tracksCollectionView.selectItem(at: IndexPath(item: currentTrackPosition, section: 0), animated: true, scrollPosition: .centeredHorizontally)
-        currentTrackLabel.text = tracks[currentTrackPosition].title
-        
         playTrack(track: nextTrack, delay: player.deviceCurrentTime + Double(crossfadeSlider.value))
         
     }
